@@ -13,8 +13,8 @@ type
     team*: Team
 
 let
-  Red = MyCell(team: Red)
-  Blue = MyCell(team: Blue)
+  Red = MyCell(team: Team.Red)
+  Blue = MyCell(team: Team.Blue)
   Dead = MyCell(team: Dead)
 
 proc `init.rand`(ratioRed, ratioBlue: float): Init =
@@ -27,7 +27,7 @@ proc `init.rand`(ratioRed, ratioBlue: float): Init =
 method draw(cell: MyCell): Color =
   if cell == Red: colors.Coral
   elif cell == Blue: colors.Skyblue
-  else: Blank
+  else: Transparent
 
 method next(cell: MyCell; field: Field; meta: Metadata): Cell =
   discard
@@ -68,5 +68,5 @@ method next(cell: MyCell; field: Field; meta: Metadata): Cell =
 var
   field = field("Game of Life", 64, 64,
     init= `init.rand`(ratioRed= 0.5, ratioBlue = 0.5),
-    clear= Gray)
+    clear= Black)
 simulate field

@@ -1,10 +1,13 @@
-import std/os
+import std/[os, math]
 import sdl2
+import sdl2/gfx
 import ca/colors
 
 type
   Init* = proc(meta: Metadata): Cell
   Cell* = ref object of RootObj
+  CellShape* = enum
+    Rect, Hex
 
   Metadata* = object
     x*, y*: Natural
@@ -12,6 +15,8 @@ type
   Field* = ref object
     init*: Init
     width*, height*: int
+    scale*: int = 10
+    cellShape*: CellShape = Rect
     clearColor*: Color
     title*: string
     current*: seq[seq[Cell]]
@@ -20,7 +25,21 @@ type
 export sdl2.Color
 export colors
 
-const Blank*: Color = (0, 0, 0, 0)
+const Transparent*: Color = (0, 0, 0, 0)
+
+proc hexagon(x, y, radius: int16): tuple[x, y: array[6, int16]] =
+  let radius = float radius
+  const r3 = sqrt(3f)
+  const HexagonX = [ 0.0, r3/2, r3/2, 0, -r3/2, -r3/2]
+  const HexagonY = [-1.0, -1/2,  1/2, 1,   1/2,  -1/2]
+  for i, dx in HexagonX:
+    result.x[i] = int16(dx * radius) + x
+  for i, dy in HexagonY:
+    result.y[i] = int16(dy * radius) + y
+
+proc fillHexagon(renderer: RendererPtr; x, y, radius: int16; color: Color) =
+  let (hx, hy) = hexagon(x, y, radius)
+  discard renderer.filledPolygonRGBA(addr hx[0], addr hy[0], 6, color.r, color.g, color.b, color.a)
 
 method draw*(cell: Cell): Color {.base.} = (discard)
 method next*(cell: Cell; field: Field; meta: Metadata): Cell {.base.} = (discard)
@@ -56,13 +75,28 @@ iterator mcells*(field: Field): tuple[x, y: int; cell: Cell] =
     for x, cell in row:
       yield (x, y, cell)
 
+
 proc drawField*(renderer: RendererPtr; field: Field) =
+  let s = field.scale
   for x, y, cell in field.mcells:
     let color = cell.draw
-    if color == Blank: continue
-    renderer.setDrawColor color
-    var rect = rect(cint x*10, cint y*10, 10, 10)
-    renderer.fillRect rect
+    if color == Transparent: continue
+    if field.cellShape == Rect:
+      renderer.setDrawColor color
+      var rect = rect(cint x*s, cint y*s, cint s, cint s)
+      renderer.fillRect rect
+    else:
+      let (fx, fy, fs) = (float x, float y, float s)
+      let hx = int16(fs * (fx + fy/2)) mod int16 (field.width * s)
+      let hy = int16(fy * 0.8 * fs)
+      renderer.fillHexagon(hx, hy, int16(fs/2), color)
+      if hx == 0:
+        renderer.fillHexagon(int16(field.width * s), hy, int16(fs/2), color)
+      if hy == 0:
+        renderer.fillHexagon(hx, int16(field.height.float * 0.8 * fs), int16(fs/2), color)
+      if hx == 0 and hy == 0:
+        renderer.fillHexagon(int16(field.width * s), int16(field.height.float * 0.8 * fs), int16(fs/2), color)
+
 
 proc update*(field: Field) =
   for y in 0..field.next.high:
@@ -72,7 +106,16 @@ proc update*(field: Field) =
   field.current = field.next
 
 proc createWindow*(field: Field; title: string): WindowPtr =
-  createWindow(title, 100, 100, cint field.width*10 , cint field.height*10, SDL_WINDOW_SHOWN)
+  if field.cellShape == Rect:
+    createWindow(title, 100, 100,
+      cint field.width*field.scale,
+      cint field.height*field.scale,
+      SDL_WINDOW_SHOWN)
+  else:
+    createWindow(title, 100, 100,
+      cint field.width*field.scale,
+      cint float(field.height*field.scale) * 0.8,
+      SDL_WINDOW_SHOWN)
 
 proc simulate*(field: Field) =
   discard sdl2.init(INIT_EVERYTHING)

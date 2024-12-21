@@ -28,7 +28,7 @@ proc `init.rand`(ratio: float): Init =
 
 method draw(cell: MyCell): Color =
   if cell == Alive: White
-  else: Blank
+  else: Transparent
 
 method next(cell: MyCell; field: Field; meta: Metadata): Cell =
   discard
