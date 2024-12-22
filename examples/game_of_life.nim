@@ -1,6 +1,7 @@
 ## Bare-bones SDL2 example
 import std/random
 import ca
+import ca/neighborhoods
 
 randomize()
 
@@ -31,13 +32,8 @@ method draw(cell: MyCell): Color =
   else: Transparent
 
 method next(cell: MyCell; field: Field; meta: Metadata): Cell =
-  discard
-  const neighbordelta: array[8, tuple[dx, dy: int]] = [
-    (-1, -1), ( 0, -1), ( 1, -1),
-    (-1,  0),           ( 1,  0),
-    (-1,  1), ( 0,  1), ( 1,  1)]
   var alives: int
-  for (dx, dy) in neighbordelta:
+  for (dx, dy) in neighborhoods.Moore:
     var other = MyCell field.delta(meta, dx, dy)
     if other == Alive:
       inc alives
